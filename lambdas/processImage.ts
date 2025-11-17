@@ -1,5 +1,7 @@
 /* eslint-disable import/extensions, import/no-absolute-path */
 import {SQSHandler} from "aws-lambda";
+import {DynamoDBClient} from "@aws-sdk/client-dynamodb";
+import {DynamoDBDocumentClient, PutCommand} from "@aws-sdk/lib-dynamodb";
 import {
     GetObjectCommand,
     PutObjectCommandInput,
@@ -7,6 +9,8 @@ import {
     S3Client,
     PutObjectCommand
 } from "@aws-sdk/client-s3";
+
+const ddbDocClient = createDDbDocClient();
 
 const s3 = new S3Client();
 
@@ -24,17 +28,32 @@ export const handler: SQSHandler = async (event) => {
                 // Object key may have spaces or unicode non-ASCII characters.
                 const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));
                 let theImage = null;
-                try { // Download the image from the S3 source bucket.
-                    const params: GetObjectCommandInput = {
-                        Bucket: srcBucket,
-                        Key: srcKey
-                    };
-                    theImage = await s3.send(new GetObjectCommand(params));
-                    // Process the image ......
-                } catch (error) {
-                    console.log(error);
-                }
+                await ddbDocClient.send(new PutCommand({
+                    TableName: process.env.TABLE_NAME,
+                    Item: {
+                        name: srcKey
+                    }
+                }));
+
             }
         }
     }
 };
+
+
+function createDDbDocClient() {
+    const ddbClient = new DynamoDBClient({region: process.env.REGION});
+    const marshallOptions = {
+        convertEmptyValues: true,
+        removeUndefinedValues: true,
+        convertClassInstanceToMap: true
+    };
+    const unmarshallOptions = {
+        wrapNumbers: false
+    };
+    const translateConfig = {
+        marshallOptions,
+        unmarshallOptions
+    };
+    return DynamoDBDocumentClient.from(ddbClient, translateConfig);
+}
