@@ -22,7 +22,7 @@ export const handler: SQSHandler = async (event) => {
 
         if (snsMessage.Records) {
             console.log("Record body ", JSON.stringify(snsMessage));
-            for (const s3Message of recordBody.Records) {
+            for (const s3Message of snsMessage.Records) {
                 const s3e = s3Message.s3;
                 // Object key may have spaces or unicode non-ASCII characters.
                 const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));
@@ -35,7 +35,7 @@ export const handler: SQSHandler = async (event) => {
                 // Check that the image type is supported
                 const imageType = typeMatch[1].toLowerCase();
                 if (imageType != "jpeg" && imageType != "png") {
-                    throw new Error("Unsupported image type: ${imageType. ");
+                    throw new Error(`Unsupported image type: ${imageType}.`);
                 }
                 await ddbDocClient.send(new PutCommand({
                     TableName: process.env.TABLE_NAME,
